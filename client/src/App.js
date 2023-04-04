@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import io from "socket.io-client";
-import Peer from "simple-peer";
+import { Peer } from "peerjs";
 
 const socket = io.connect("http://localhost:3001");
 
@@ -14,7 +14,7 @@ function App() {
   const [users, setUsers] = useState({}); // Utilisez le state pour stocker les utilisateurs connectés
   const userVideo = useRef();
   const partnerVideo = useRef();
-
+  const peer = new Peer("pick-an-id");
   useEffect(() => {
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
@@ -42,11 +42,7 @@ function App() {
     });
 
     socket.on("callAccepted", (signal) => {
-      const peer = new Peer({
-        initiator: false,
-        trickle: false,
-        stream,
-      });
+      const peer = new Peer("pick-an-id");
       peer.on("signal", (data) => {
         socket.emit("answerCall", { signal: data, to: caller });
       });
@@ -74,11 +70,7 @@ function App() {
   }, []);
 
   const callUser = () => {
-    const peer = new Peer({
-      initiator: true,
-      trickle: false,
-      stream,
-    });
+    const peer = new Peer("pick-an-id");
 
     peer.on("signal", (data) => {
       socket.emit("callUser", {

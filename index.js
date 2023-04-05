@@ -1,7 +1,14 @@
 const express = require("express");
 const cors = require("cors");
+require("dotenv").config();
+require("./config/db");
 const app = express();
 const server = require("http").createServer(app);
+const roomControler = require('./controller/room.controller')
+const PORT = 3001;
+let user = ''
+let connectedUserRoom = {}
+
 const io = require("socket.io")(server, {
   cors: {
     origin: "*",
@@ -9,35 +16,24 @@ const io = require("socket.io")(server, {
   },
 });
 
-const PORT = 3001;
-
-// Utilisez le middleware CORS pour autoriser les requêtes provenant de l'origine spécifiée
 app.use(cors());
-
 app.use(express.static("public"));
-const users = {};
+
 io.on("connection", (socket) => {
-  console.log("User connected:", socket.id);
-  users[socket.id] = true;
+  user = socket.id
 
-  socket.broadcast.emit("allUsers", { users });
+  // send if user connected
+  socket.emit('User connected', socket.id)
 
-  socket.on("callUser", ({ userToCall, signalData, from }) => {
-    console.log("callUser:", userToCall, signalData, from);
-    io.to(userToCall).emit("callUser", { signal: signalData, from });
+  // listen if user create room 
+  socket.on("create_room", (...args) => {
+    connectedUserRoom.id = user
+    connectedUserRoom.room = args[0].room[0]
+    console.log("connectedUserRoom", connectedUserRoom);
+    roomControler.createRoom(connectedUserRoom, "");
+    socket.emit('create_room', [user, ...args])
   });
 
-  socket.on("answerCall", ({ signal, to }) => {
-    console.log("callAccepted:", signal, to);
-    io.to(to).emit("callAccepted", signal);
-  });
-
-  // Ajoutez un gestionnaire d'événements d'erreur pour le socket
-  socket.on("error", (err) => {
-    console.error("Socket error:", err);
-  });
-
-  // Ajoutez des `console.log` pour vérifier les IDs et les connexions
   socket.on("join-room", (roomId, userId) => {
     console.log("User joined room:", roomId, userId);
     socket.join(roomId);
@@ -47,10 +43,6 @@ io.on("connection", (socket) => {
       console.log("User disconnected:", userId);
       socket.to(roomId).broadcast.emit("user-disconnected", userId);
     });
-  });
-
-  socket.on("disconnect", () => {
-    console.log("User disconnected:", socket.id);
   });
 });
 

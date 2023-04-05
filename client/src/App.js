@@ -1,139 +1,71 @@
 import React, { useRef, useState, useEffect } from "react";
 import io from "socket.io-client";
 import { Peer } from "peerjs";
+import axios from "axios";
+import { Button, Form } from "react-bootstrap";
 
-const socket = io.connect("http://localhost:3001");
-
-function App() {
-  const [stream, setStream] = useState(null);
-  const [receivingCall, setReceivingCall] = useState(false);
-  const [caller, setCaller] = useState(null);
-  const [callerSignal, setCallerSignal] = useState(null);
-  const [otherUserId, setOtherUserId] = useState(null);
-  const [userToCall, setUserToCall] = useState("");
-  const [users, setUsers] = useState({}); // Utilisez le state pour stocker les utilisateurs connectés
-  const userVideo = useRef();
-  const partnerVideo = useRef();
-  const peer = new Peer("pick-an-id");
-  useEffect(() => {
-    navigator.mediaDevices
-      .getUserMedia({ video: true, audio: true })
-      .then((stream) => {
-        setStream(stream);
-        if (userVideo.current) {
-          userVideo.current.srcObject = stream;
-        }
-      });
+const socket = io.connect("ws://localhost:3001");
  
-    socket.on("allUsers", ({ users }) => {
-      setUsers(users); // Mettez à jour l'état des utilisateurs connectés
-      for (const id in users) {
-        if (id !== socket.id) {
-          setOtherUserId(id);
-          break;
-        }
-      }
-    });
+function App() {
+  const [user, setUser] = useState(null);
+  const [room, setRoom] = useState([]);
+  const [useRoom, setUseRoom] = useState([]);
 
-    socket.on("callUser", ({ signal, from }) => {
-      setReceivingCall(true);
-      setCaller(from);
-      setCallerSignal(signal);
-    });
-
-    socket.on("callAccepted", (signal) => {
-      const peer = new Peer("pick-an-id");
-      peer.on("signal", (data) => {
-        socket.emit("answerCall", { signal: data, to: caller });
-      });
-      peer.on("stream", (stream) => {
-        partnerVideo.current.srcObject = stream;
-      });
-      peer.signal(signal);
-    });
-
-    // Mettez à jour l'état des utilisateurs connectés lorsqu'un nouvel utilisateur se connecte
-    socket.on("user-connected", (userId) => {
+  useEffect(() => {
+    // listen if user is connected 
+    socket.on("User connected", (userId) => {
+      setUser(userId)
       console.log("User connected:", userId);
-      setUsers((prevUsers) => ({ ...prevUsers, [userId]: true }));
     });
 
-    // Mettez à jour l'état des utilisateurs connectés lorsqu'un utilisateur se déconnecte
+    // listen if user is disconnected 
     socket.on("user-disconnected", (userId) => {
-      console.log("User disconnected:", userId);
-      setUsers((prevUsers) => {
-        const newUsers = { ...prevUsers };
-        delete newUsers[userId];
-        return newUsers;
-      });
+      setUser('')
+      console.log("user disconnected:", userId);
     });
+
+    // listen created room
+    socket.on("create_room", (useRoom)=>{
+      setUseRoom([useRoom[1].room])
+      console.log("user:", useRoom[0] , "create room", useRoom[1].room)
+    })
   }, []);
 
-  const callUser = () => {
-    const peer = new Peer("pick-an-id");
 
-    peer.on("signal", (data) => {
-      socket.emit("callUser", {
-        userToCall: userToCall, // Utilisez la valeur sélectionnée dans la liste déroulante
-        signalData: data,
-        from: socket.id,
-      });
-    });
-
-    peer.on("stream", (stream) => {
-      if (partnerVideo.current) {
-        partnerVideo.current.srcObject = stream;
-      }
-    });
+  const handleSubmit = () => {
+    // send name room 
+    socket.emit("create_room", {room});
   };
 
-  const answerCall = () => {
-    setReceivingCall(false);
-
-    const peer = new Peer({
-      initiator: false,
-      trickle: false,
-      stream,
-    });
-    peer.on("signal", (data) => {
-      socket.emit("answerCall", { signal: data, to: caller });
-    });
-
-    peer.on("stream", (stream) => {
-      partnerVideo.current.srcObject = stream;
-    });
-
-    peer.signal(callerSignal);
-  };
- 
   return (
-    <div className="App">
-      {stream && (
-        <video
-          playsInline
-          muted
-          ref={userVideo}
-          autoPlay
-          style={{ width: "50%" }}
-        />
-      )}
-      {receivingCall && (
-        <>
-          <h1>Someone is calling you...</h1>
-          <button onClick={answerCall}>Answer</button> 
-        </>
-      )}
-      <video playsInline ref={partnerVideo} autoPlay style={{ width: "50%" }} />
-      {/* Ajoutez une liste déroulante pour sélectionner l'utilisateur à appeler */}
-      <select onChange={(e) => setUserToCall(e.target.value)}>
-        {Object.keys(users).map((userId) => (
-          <option key={userId} value={userId}>
-            User {userId}
-          </option>
-        ))}
-      </select>
-      <button onClick={callUser}>Call</button>
-    </div>
+      <div>
+          <div className="">
+            <Form>
+              <Form.Group className="mb-3" controlId="formBasicEmail">
+                <Form.Label>Room</Form.Label>
+                <Form.Control
+                  type="text"
+                  placeholder="Name room"
+                  onChange={(e) => setRoom([e.target.value])}
+                />
+                <Button variant="primary" onClick={()=>handleSubmit()}>
+                  Submit
+                </Button>
+              </Form.Group>
+            </Form>
+          </div>
+          <div className="listRoom">
+          {useRoom.map((e,i)=>{
+            return (
+              <div key={i}>
+                <Button variant="secondary" onClick={()=>handleSubmit()}>
+                  {e}
+                </Button>
+              </div>
+            )
+          })}
+          </div>
+        </div>
   );
 }
 

@@ -18,21 +18,28 @@ const io = require("socket.io")(server, {
 
 app.use(cors());
 app.use(express.static("public"));
+app.use(express.json());
+
+const getAllRooms = async()=>{
+  return await roomControler.getAllRooms()
+}
+
+app.get('/', async(req, res)=>{
+ res.send(await getAllRooms())
+})
 
 io.on("connection", (socket) => {
   user = socket.id
 
   // send if user connected
-  socket.emit('User connected', socket.id)
+  socket.emit('User_connected', socket.id)
 
   // listen if user create room 
-  socket.on("create_room", (...args) => {
+  socket.on("create_room", async(...args) => {
     connectedUserRoom.id = user
-    connectedUserRoom.room = args
-    
-    console.log(connectedUserRoom)
-    // roomControler.createRoom(connectedUserRoom, "");
-    io.emit('create_room', connectedUserRoom)
+    connectedUserRoom.room = args[0]
+    roomControler.createRoom(connectedUserRoom, "");
+    io.emit('create_room', await getAllRooms())
   });
 
   // socket.on('create_room', msg => {

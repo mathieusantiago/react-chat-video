@@ -1,72 +1,78 @@
-import React, { useRef, useState, useEffect } from "react";
-import io from "socket.io-client";
-import { Peer } from "peerjs";
-import axios from "axios";
-import { Button, Form } from "react-bootstrap";
+import { Button, Form } from 'react-bootstrap';
+import React, { useState, useEffect, useRef } from 'react';
+import io from 'socket.io-client';
 
-const socket = io.connect("ws://localhost:3001");
- 
-function App() {
-  const [user, setUser] = useState(null);
-  const [room, setRoom] = useState([]);
-  const [useRoom, setUseRoom] = useState([]);
+const App = () => {
+  const [input, setInput] = useState('');
+  const [messages, setMessages] = useState([]);
+  const messagesEndRef = useRef(null);
+  const [socket, setSocket] = useState(null);
 
   useEffect(() => {
-    // listen if user is connected 
-    socket.on("User connected", (userId) => {
-      setUser(userId)
-      console.log("User connected:", userId);
-    });
+    const newSocket = io.connect("http://localhost:3001");
+    setSocket(newSocket);
 
-    // listen if user is disconnected 
-    socket.on("user-disconnected", (userId) => {
-      setUser('')
-      console.log("user disconnected:", userId);
-    });
-
-    // listen created room
-    socket.on("create_room", (useRoom)=>{
-      setUseRoom([useRoom[1].room])
-      console.log("user:", useRoom[0] , "create room", useRoom[1].room)
-    })
+    return () => {
+      newSocket.disconnect();
+    };
   }, []);
 
+  useEffect(() => {
+    if (!socket) return;
 
-  const handleSubmit = () => {
-    // send name room 
-    socket.emit("create_room", {room});
+    socket.on('create_room', (msg) => {
+      console.log(msg)
+      setMessages((prevMessages) => {
+        if (prevMessages !== msg)
+          return [...prevMessages, msg];
+      });
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    });
+
+    return () => {
+      socket.off('create_room');
+    };
+  }, [socket]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (input) {
+      socket.emit('create_room', input);
+      setInput('');
+    }
   };
 
   return (
-      <div>
-          <div className="">
-            <Form>
-              <Form.Group className="mb-3" controlId="formBasicEmail">
-                <Form.Label>Room</Form.Label>
-                <Form.Control
-                  type="text"
-                  placeholder="Name room"
-                  onChange={(e) => setRoom([e.target.value])}
-                />
-                <Button variant="primary" onClick={()=>handleSubmit()}>
-                  Submit
-                </Button>
-              </Form.Group>
-            </Form>
-          </div>
-          <div className="listRoom">
-          {useRoom.map((e,i)=>{
-            return (
-              <div key={i}>
-                <Button variant="secondary" onClick={()=>handleSubmit()}>
-                  {e}
-                </Button>
-              </div>
-            )
-          })}
-          </div>
-        </div>
+    <div>
+      <div className="">
+        <Form onSubmit={handleSubmit}>
+          <Form.Group className="mb-3" controlId="formBasicEmail">
+            <Form.Label>Room</Form.Label>
+            <Form.Control
+              type="text"
+              placeholder="Name room"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+            />
+            <Button variant="primary" type="submit">
+              Submit
+            </Button>
+          </Form.Group>
+        </Form>
+      </div>
+      <div className="listRoom">
+        {messages.map((msg, index) => {
+          return (
+            <div key={index}>
+              <Button variant="secondary" onClick={() => handleSubmit()}>
+                {msg.room}
+              </Button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
-}
+};
 
 export default App;

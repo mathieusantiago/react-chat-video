@@ -28,22 +28,28 @@ io.on("connection", (socket) => {
   // listen if user create room 
   socket.on("create_room", (...args) => {
     connectedUserRoom.id = user
-    connectedUserRoom.room = args[0].room[0]
-    console.log("connectedUserRoom", connectedUserRoom);
-    roomControler.createRoom(connectedUserRoom, "");
-    socket.emit('create_room', [user, ...args])
+    connectedUserRoom.room = args
+    
+    console.log(connectedUserRoom)
+    // roomControler.createRoom(connectedUserRoom, "");
+    io.emit('create_room', connectedUserRoom)
   });
 
-  socket.on("join-room", (roomId, userId) => {
-    console.log("User joined room:", roomId, userId);
-    socket.join(roomId);
-    socket.to(roomId).broadcast.emit("user-connected", userId);
+  // socket.on('create_room', msg => {
+  //   console.log(msg)
+  //   io.emit('create_room', msg);
+  // });
+  
+  // socket.on("join-room", (roomId, userId) => {
+  //   console.log("User joined room:", roomId, userId);
+  //   socket.join(roomId);
+  //   socket.to(roomId).broadcast.emit("user-connected", userId);
 
-    socket.on("disconnect", () => {
-      console.log("User disconnected:", userId);
-      socket.to(roomId).broadcast.emit("user-disconnected", userId);
-    });
-  });
+  //   socket.on("disconnect", () => {
+  //     console.log("User disconnected:", userId);
+  //     socket.to(roomId).broadcast.emit("user-disconnected", userId);
+  //   });
+  // });
 });
 
 server.listen(PORT, () => {
